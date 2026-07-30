@@ -1,0 +1,42 @@
+import { Router } from 'express';
+import academicRoutes from './academic.routes';
+import assignmentRoutes from './assignment.routes';
+import attendanceRoutes from './attendance.routes';
+import authRoutes from './auth.routes';
+import documentRoutes from './document.routes';
+import examRoutes from './exam.routes';
+import feeRoutes from './fee.routes';
+import libraryRoutes from './library.routes';
+import fileRoutes from './file.routes';
+import healthRoutes from './health.routes';
+import hostelRoutes from './hostel.routes';
+import leaveRoutes from './leave.routes';
+import messageRoutes from './message.routes';
+import noticeRoutes from './notice.routes';
+import studentRoutes from './student.routes';
+import teacherRoutes from './teacher.routes';
+import timetableRoutes from './timetable.routes';
+import transportRoutes from './transport.routes';
+
+const router = Router();
+
+router.use('/health', healthRoutes);
+router.use('/auth', authRoutes);
+router.use('/files', fileRoutes);
+router.use('/academics', academicRoutes);
+router.use('/students', studentRoutes);
+router.use('/teachers', teacherRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/timetable', timetableRoutes);
+router.use('/assignments', assignmentRoutes);
+router.use('/exams', examRoutes);
+router.use('/fees', feeRoutes);
+router.use('/library', libraryRoutes);
+router.use('/hostel', hostelRoutes);
+router.use('/transport', transportRoutes);
+router.use('/leave', leaveRoutes);
+router.use('/notices', noticeRoutes);
+router.use('/messages', messageRoutes);
+router.use('/documents', documentRoutes);
+
+export default router;
