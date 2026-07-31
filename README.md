@@ -120,7 +120,7 @@ Requests flow through a fixed pipeline: **authenticate → authorize → validat
 
 ```bash
 git clone <repository-url>
-cd educore
+cd student-management-system
 
 cd backend  && npm install
 cd ../frontend && npm install
