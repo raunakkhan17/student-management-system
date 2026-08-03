@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookMarked,
   Bus,
   CalendarClock,
@@ -14,6 +15,7 @@ import {
   NotebookPen,
   ReceiptIndianRupee,
   ScrollText,
+  Settings,
   UsersRound,
   type LucideIcon,
 } from 'lucide-react';
@@ -75,6 +77,14 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Notices', href: '/notices', icon: Megaphone, module: 'NOTICES' },
       { label: 'Messages', href: '/messages', icon: MessagesSquare, module: 'COMMUNICATION' },
       { label: 'Documents', href: '/documents', icon: FileText, module: 'DOCUMENTS' },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { label: 'Reports', href: '/reports', icon: BarChart3, module: 'REPORTS' },
+      { label: 'Audit log', href: '/audit-logs', icon: ScrollText, module: 'AUDIT_LOGS' },
+      { label: 'Settings', href: '/settings', icon: Settings, module: 'SETTINGS' },
     ],
   },
 ];
