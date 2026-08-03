@@ -255,6 +255,19 @@ async function seedTimetablePeriods(): Promise<void> {
 async function seedEmailTemplates(): Promise<void> {
   const templates = [
     {
+      key: 'library-due-reminder',
+      name: 'Library due reminder',
+      subject: 'Your library book is due {{dueDate}}',
+      description: 'Sent 3, 2 and 1 days before a borrowed book falls due.',
+      variables: ['firstName', 'bookTitle', 'accessionNumber', 'dueDate', 'daysRemaining', 'appName'],
+      bodyHtml: `
+        <p>Hello {{firstName}},</p>
+        <p><strong>{{bookTitle}}</strong> (accession {{accessionNumber}}) is due back
+           in {{daysRemaining}} day(s), on {{dueDate}}.</p>
+        <p>Please return or renew it at the library desk to avoid a late fine.</p>
+      `.trim(),
+    },
+    {
       key: 'password-reset',
       name: 'Password reset',
       subject: 'Reset your {{appName}} password',
