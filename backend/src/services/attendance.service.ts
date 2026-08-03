@@ -3,6 +3,7 @@ import { prisma } from '@/config/prisma';
 import type { AuthenticatedUser } from '@/types/auth';
 import type { ListQueryOptions, PaginatedData } from '@/types/api';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '@/utils/api-error';
+import { ownSectionIds } from '@/utils/enrolment-scope';
 import { buildPaginationMeta } from '@/utils/pagination';
 import type {
   AttendanceRecordInput,
@@ -48,6 +49,13 @@ async function assertCanMarkSection(
   sectionId: string,
   subjectId: string | null,
 ): Promise<void> {
+  // The register is a staff tool. Students and parents read their own
+  // attendance through `/attendance/students/:studentId`, which scopes to the
+  // one record they are entitled to.
+  if (user.role === 'STUDENT' || user.role === 'PARENT') {
+    throw new ForbiddenError('You can only view your own attendance record');
+  }
+
   if (user.role !== 'TEACHER') return;
   if (!user.teacherId) {
     throw new ForbiddenError('Your account is not linked to a teacher record');
@@ -455,6 +463,11 @@ export async function listSessions(
             { class: { classTeacherId: user.teacherId } },
           ],
         }
+      : {}),
+    // Students and parents see only the sections they belong to, so a session
+    // list can never expose another class's register.
+    ...(user.role === 'STUDENT' || user.role === 'PARENT'
+      ? { sectionId: { in: await ownSectionIds(user) } }
       : {}),
   };
 
