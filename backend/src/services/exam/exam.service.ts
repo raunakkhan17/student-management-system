@@ -3,6 +3,7 @@ import { prisma } from '@/config/prisma';
 import type { ListQueryOptions, PaginatedData } from '@/types/api';
 import type { AuthenticatedUser } from '@/types/auth';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '@/utils/api-error';
+import { ownClassIds } from '@/utils/enrolment-scope';
 import { buildPaginationMeta } from '@/utils/pagination';
 import type {
   CreateExamInput,
@@ -53,12 +54,20 @@ export interface ExamFilters {
   status?: ExamStatus[];
 }
 
-/** Students and parents only ever see exams whose results are published. */
+/**
+ * Students and parents see only exams for the class they are enrolled in, and
+ * never a draft or cancelled one. An exam with no class is institution-wide, so
+ * it stays visible to everybody.
+ */
 async function buildScope(user: AuthenticatedUser): Promise<Prisma.ExamWhereInput> {
-  if (user.role === 'STUDENT' || user.role === 'PARENT') {
-    return { status: { in: ['SCHEDULED', 'ONGOING', 'COMPLETED', 'RESULTS_PUBLISHED'] } };
-  }
-  return {};
+  if (user.role !== 'STUDENT' && user.role !== 'PARENT') return {};
+
+  const classIds = await ownClassIds(user);
+
+  return {
+    status: { in: ['SCHEDULED', 'ONGOING', 'COMPLETED', 'RESULTS_PUBLISHED'] },
+    OR: [{ classId: null }, { classId: { in: classIds } }],
+  };
 }
 
 export async function listExams(
@@ -567,4 +576,80 @@ export async function getMarksProgress(examId: string) {
       };
     }),
   );
+}
+
+/**
+ * Flat marks rows for the exam report export (PRD Module 18).
+ *
+ * One row per student per paper rather than a subject-per-column matrix, so
+ * the shape stays the same whatever subjects a class happens to sit.
+ * Independent of report cards, which may not have been generated yet.
+ */
+export async function getExamResultRows(filters: {
+  examId?: string;
+  classId?: string;
+  academicYearId?: string;
+}) {
+  const marks = await prisma.mark.findMany({
+    where: {
+      examSchedule: {
+        ...(filters.classId ? { classId: filters.classId } : {}),
+        exam: {
+          deletedAt: null,
+          ...(filters.examId ? { id: filters.examId } : {}),
+          ...(filters.academicYearId ? { academicYearId: filters.academicYearId } : {}),
+        },
+      },
+    },
+    orderBy: [
+      { examSchedule: { exam: { startDate: 'desc' } } },
+      { student: { rollNumber: 'asc' } },
+    ],
+    select: {
+      marksObtained: true,
+      isAbsent: true,
+      grade: true,
+      student: {
+        select: {
+          admissionNumber: true,
+          rollNumber: true,
+          user: { select: { firstName: true, lastName: true } },
+          class: { select: { name: true } },
+          section: { select: { name: true } },
+        },
+      },
+      examSchedule: {
+        select: {
+          examDate: true,
+          maxMarks: true,
+          passingMarks: true,
+          subject: { select: { name: true, code: true } },
+          exam: { select: { name: true, type: true } },
+        },
+      },
+    },
+  });
+
+  return marks.map((mark) => {
+    const obtained = mark.marksObtained === null ? null : Number(mark.marksObtained);
+    const passing = Number(mark.examSchedule.passingMarks);
+
+    return {
+      Exam: mark.examSchedule.exam.name,
+      'Exam type': mark.examSchedule.exam.type,
+      Class: mark.student.class?.name ?? '',
+      Section: mark.student.section?.name ?? '',
+      'Admission number': mark.student.admissionNumber,
+      'Roll number': mark.student.rollNumber ?? '',
+      Student: `${mark.student.user.firstName} ${mark.student.user.lastName}`,
+      Subject: mark.examSchedule.subject.name,
+      'Subject code': mark.examSchedule.subject.code,
+      'Exam date': mark.examSchedule.examDate.toISOString().slice(0, 10),
+      'Max marks': Number(mark.examSchedule.maxMarks),
+      'Marks obtained': mark.isAbsent ? '' : (obtained ?? ''),
+      Absent: mark.isAbsent ? 'Yes' : 'No',
+      Grade: mark.grade ?? '',
+      Result: mark.isAbsent ? 'Absent' : obtained === null ? '' : obtained >= passing ? 'Pass' : 'Fail',
+    };
+  });
 }

@@ -160,3 +160,11 @@ export type UpdateExamInput = z.infer<typeof updateExamSchema>;
 export type ExamScheduleInput = z.infer<typeof examScheduleSchema>;
 export type EnterMarksInput = z.infer<typeof enterMarksSchema>;
 export type CreateGradeScaleInput = z.infer<typeof createGradeScaleSchema>;
+
+/** Filters for the exam results export (PRD Module 18). */
+export const examReportQuerySchema = z.object({
+  examId: z.string().uuid().optional(),
+  classId: z.string().uuid().optional(),
+  academicYearId: z.string().uuid().optional(),
+  format: z.enum(['csv', 'xlsx']).default('xlsx'),
+});

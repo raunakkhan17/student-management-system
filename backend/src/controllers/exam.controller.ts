@@ -6,6 +6,7 @@ import * as gradeService from '@/services/exam/grade.service';
 import * as reportCardService from '@/services/exam/report-card.service';
 import { sendCreated, sendPaginated, sendSuccess } from '@/utils/api-response';
 import { asyncHandler } from '@/utils/async-handler';
+import { sendExport } from '@/utils/export';
 import { buildListQuery } from '@/utils/pagination';
 import type {
   CreateExamInput,
@@ -312,4 +313,24 @@ export const deleteGradeScale = asyncHandler(async (req: Request, res: Response)
   });
 
   sendSuccess(res, null, 'Grade scale deleted successfully');
+});
+
+/** Exam results export — PRD Module 18, "Exam Reports". */
+export const exportResults = asyncHandler(async (req: Request, res: Response) => {
+  const format = (req.query['format'] as 'csv' | 'xlsx' | undefined) ?? 'xlsx';
+
+  const rows = await examService.getExamResultRows({
+    examId: req.query['examId'] as string | undefined,
+    classId: req.query['classId'] as string | undefined,
+    academicYearId: req.query['academicYearId'] as string | undefined,
+  });
+
+  await auditFromRequest(req, {
+    action: 'EXPORT',
+    module: MODULE,
+    entityType: 'Mark',
+    description: `Exported ${rows.length} exam result row(s) as ${format}`,
+  });
+
+  await sendExport(res, rows, `exam-results-${new Date().toISOString().slice(0, 10)}`, format, 'Results');
 });

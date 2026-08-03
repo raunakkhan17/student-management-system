@@ -10,6 +10,7 @@ import {
   createGradeScaleSchema,
   enterMarksSchema,
   examQuerySchema,
+  examReportQuerySchema,
   examScheduleSchema,
   publishResultsSchema,
   reportCardQuerySchema,
@@ -31,6 +32,15 @@ const canApprove = requirePermission('EXAMS', 'APPROVE');
 const scheduleParam = uuidParamSchema.extend({ scheduleId: z.string().uuid() });
 const scheduleOnlyParam = z.object({ scheduleId: z.string().uuid() });
 const resultParam = z.object({ studentId: z.string().uuid(), examId: z.string().uuid() });
+
+// ----------------------------------------------------------------- Reports
+// Static segment, so it must precede `/:id`.
+router.get(
+  '/reports/results',
+  requirePermission('EXAMS', 'EXPORT'),
+  validate({ query: examReportQuerySchema }),
+  controller.exportResults,
+);
 
 // ------------------------------------------------------------- Grade scales
 // Declared before `/:id` so "grade-scales" is not read as an exam identifier.
