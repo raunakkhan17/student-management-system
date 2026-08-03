@@ -459,3 +459,20 @@ export const exportReport = asyncHandler(async (req: Request, res: Response) => 
 
   await sendExport(res, rows, `library-catalogue-${new Date().toISOString().slice(0, 10)}`, format, 'Catalogue');
 });
+
+/**
+ * Notifies borrowers with books falling due in 3, 2 or 1 days. Driven by cron
+ * in a deployment; safe to trigger by hand and safe to run more than once.
+ */
+export const sendDueReminders = asyncHandler(async (req: Request, res: Response) => {
+  const result = await circulationService.sendDueReminders();
+
+  await auditFromRequest(req, {
+    action: 'UPDATE',
+    module: MODULE,
+    entityType: 'BookTransaction',
+    description: `Sent ${result.sent} due reminder(s); ${result.skipped} already notified today`,
+  });
+
+  sendSuccess(res, result, `${result.sent} reminder(s) sent`);
+});

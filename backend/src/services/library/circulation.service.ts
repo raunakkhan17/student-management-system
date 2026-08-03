@@ -5,7 +5,7 @@ import type { ListQueryOptions, PaginatedData } from '@/types/api';
 import type { AuthenticatedUser } from '@/types/auth';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '@/utils/api-error';
 import { buildPaginationMeta } from '@/utils/pagination';
-import { notify } from '@/services/notification.service';
+import { notify, notifyOne } from '@/services/notification.service';
 import type {
   IssueBookInput,
   LibrarySettingsInput,
@@ -759,4 +759,100 @@ export async function getMemberLoanSummary(memberId: string) {
       accruedFine: calculateFine(loan.dueDate, settings.finePerDay).toFixed(2),
     })),
   };
+}
+
+/** Days before the due date on which a borrower is reminded. */
+const REMINDER_DAYS = [3, 2, 1] as const;
+
+export interface DueReminderResult {
+  /** Loans that matched a reminder window, whether or not a notice was sent. */
+  due: number;
+  sent: number;
+  /** Already reminded today — the job is safe to run more than once a day. */
+  skipped: number;
+  byDay: { daysRemaining: number; sent: number }[];
+}
+
+/**
+ * Notifies borrowers whose loans fall due in 3, 2 or 1 days.
+ *
+ * Triggered rather than scheduled in-process: the deployment target runs this
+ * from cron, the same way `refreshOverdueLoans` is driven. Re-running it on the
+ * same day is harmless — a borrower is reminded at most once per window.
+ */
+export async function sendDueReminders(): Promise<DueReminderResult> {
+  const now = new Date();
+  const startOfToday = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+
+  const result: DueReminderResult = { due: 0, sent: 0, skipped: 0, byDay: [] };
+
+  for (const daysRemaining of REMINDER_DAYS) {
+    // The whole of the target day, so a due time of 17:00 still matches.
+    const windowStart = new Date(startOfToday.getTime() + daysRemaining * 86_400_000);
+    const windowEnd = new Date(windowStart.getTime() + 86_400_000);
+
+    const loans = await prisma.bookTransaction.findMany({
+      where: {
+        status: 'ACTIVE',
+        returnDate: null,
+        dueDate: { gte: windowStart, lt: windowEnd },
+      },
+      select: {
+        id: true,
+        dueDate: true,
+        memberId: true,
+        bookCopy: {
+          select: { accessionNumber: true, book: { select: { title: true } } },
+        },
+      },
+    });
+
+    result.due += loans.length;
+    let sentForDay = 0;
+
+    for (const loan of loans) {
+      // One reminder per loan per day, so a second run sends nothing.
+      const alreadySent = await prisma.notification.count({
+        where: {
+          userId: loan.memberId,
+          type: 'LIBRARY_DUE',
+          entityType: 'BookTransaction',
+          entityId: loan.id,
+          createdAt: { gte: startOfToday },
+        },
+      });
+
+      if (alreadySent > 0) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const dayWord = daysRemaining === 1 ? 'tomorrow' : `in ${daysRemaining} days`;
+
+      await notifyOne(loan.memberId, {
+        type: 'LIBRARY_DUE',
+        title: `Library book due ${dayWord}`,
+        body: `"${loan.bookCopy.book.title}" (${loan.bookCopy.accessionNumber}) is due on ${loan.dueDate.toISOString().slice(0, 10)}. Please return or renew it to avoid a fine.`,
+        link: '/library',
+        entityType: 'BookTransaction',
+        entityId: loan.id,
+        emailTemplateKey: 'library-due-reminder',
+        emailVariables: {
+          bookTitle: loan.bookCopy.book.title,
+          accessionNumber: loan.bookCopy.accessionNumber,
+          dueDate: loan.dueDate.toISOString().slice(0, 10),
+          daysRemaining: String(daysRemaining),
+        },
+      });
+
+      sentForDay += 1;
+      result.sent += 1;
+    }
+
+    result.byDay.push({ daysRemaining, sent: sentForDay });
+  }
+
+  return result;
 }

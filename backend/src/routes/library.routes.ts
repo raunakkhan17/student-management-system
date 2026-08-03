@@ -82,6 +82,9 @@ router.post('/issue', canAssign, validate({ body: issueBookSchema }), controller
 router.post('/reserve', canView, validate({ body: reserveBookSchema }), controller.reserveBook);
 router.post('/overdue/refresh', canEdit, controller.refreshOverdue);
 
+/** Due-date reminders at 3, 2 and 1 days. Idempotent within a calendar day. */
+router.post('/reminders/due', canEdit, controller.sendDueReminders);
+
 router.get('/transactions', canView, validate({ query: transactionQuerySchema }), controller.listTransactions);
 
 router.post(
