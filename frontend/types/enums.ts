@@ -44,6 +44,41 @@ export const AppModule = {
 } as const;
 export type AppModule = (typeof AppModule)[keyof typeof AppModule];
 
+export const AuditAction = {
+  CREATE: 'CREATE',
+  UPDATE: 'UPDATE',
+  DELETE: 'DELETE',
+  RESTORE: 'RESTORE',
+  LOGIN: 'LOGIN',
+  LOGOUT: 'LOGOUT',
+  LOGIN_FAILED: 'LOGIN_FAILED',
+  PASSWORD_CHANGE: 'PASSWORD_CHANGE',
+  PASSWORD_RESET: 'PASSWORD_RESET',
+  APPROVE: 'APPROVE',
+  REJECT: 'REJECT',
+  PUBLISH: 'PUBLISH',
+  EXPORT: 'EXPORT',
+  ASSIGN: 'ASSIGN',
+} as const;
+export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
+
+export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  CREATE: 'Created',
+  UPDATE: 'Updated',
+  DELETE: 'Deleted',
+  RESTORE: 'Restored',
+  LOGIN: 'Signed in',
+  LOGOUT: 'Signed out',
+  LOGIN_FAILED: 'Sign-in failed',
+  PASSWORD_CHANGE: 'Changed password',
+  PASSWORD_RESET: 'Reset password',
+  APPROVE: 'Approved',
+  REJECT: 'Rejected',
+  PUBLISH: 'Published',
+  EXPORT: 'Exported',
+  ASSIGN: 'Assigned',
+};
+
 export const PermissionAction = {
   VIEW: 'VIEW',
   CREATE: 'CREATE',

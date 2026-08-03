@@ -51,6 +51,23 @@ export function formatCurrency(value: number | string | null | undefined, fallba
   return Number.isFinite(numeric) ? currencyFormatter.format(numeric) : fallback;
 }
 
+const compactCurrencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+/** `₹1.3L` — for axis ticks and tiles, where the full figure will not fit. */
+export function formatCurrencyCompact(
+  value: number | string | null | undefined,
+  fallback = '—',
+): string {
+  if (value === null || value === undefined || value === '') return fallback;
+  const numeric = typeof value === 'string' ? Number(value) : value;
+  return Number.isFinite(numeric) ? compactCurrencyFormatter.format(numeric) : fallback;
+}
+
 const numberFormatter = new Intl.NumberFormat('en-IN');
 
 export function formatNumber(value: number | string | null | undefined, fallback = '—'): string {
