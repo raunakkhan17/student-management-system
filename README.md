@@ -2,7 +2,7 @@
 
 A production-oriented Student Management System for schools and colleges — built as a single, coherent application covering admissions through to graduation, with role-based access for every person who touches the institution.
 
-Seventeen functional modules, ~230 REST endpoints, 96 database tables, and seven user roles sharing one permission model.
+Twenty functional modules, ~250 REST endpoints, 96 database tables, and seven user roles sharing one permission model.
 
 **Author:** Raunak Khan
 
@@ -20,7 +20,11 @@ Seventeen functional modules, ~230 REST endpoints, 96 database tables, and seven
 - [API conventions](#api-conventions)
 - [Security](#security)
 - [Project status](#project-status)
+- [Demo data](#demo-data)
 - [Licence](#licence)
+
+> **Setting this up for the first time?** [`SETUP.md`](SETUP.md) is a step-by-step guide from `git clone` to a running, populated app.
+> **Presenting it?** [`DEMO.md`](DEMO.md) is a 20-minute role-by-role walkthrough built on the demo data.
 
 ---
 
@@ -58,6 +62,12 @@ The design goal throughout was correctness over cleverness: money is `Decimal` e
 - **Notice board** — categories, scheduling, pinning, attachments, expiry, and audience targeting by role, class or section
 - **Communication** — direct and group messaging with attachments, archive and mute, plus a notification centre with per-type in-app and email preferences
 - **Documents** — upload and verification for sixteen document types including transfer certificates and report cards, with expiry warnings
+
+### Insight and administration
+- **Dashboard** — a different landing page per role: institution-wide figures and five charts for administrators, today's classes and pending registers for teachers, attendance and fee standing for students, per-child summaries for parents
+- **Reports** — nine CSV and Excel exports (students, teachers, attendance, exam results, fee collection, outstanding fees, library catalogue, hostel occupancy, transport riders) behind one shared filter row
+- **Settings** — institution profile and attendance rules editable; email templates and the role/module/action grant matrix readable
+- **Audit log** — filterable trail of every mutation with actor, IP, affected entity and a field-level before/after diff
 
 ---
 
@@ -304,24 +314,50 @@ Sortable columns are whitelisted per endpoint, so a client can never sort by an 
 
 ## Project status
 
-Seventeen of twenty planned modules are implemented, and the application boots, migrates, seeds and authenticates against a live PostgreSQL database.
+All twenty planned modules are implemented. The application boots, migrates, seeds and authenticates against a live PostgreSQL database, and both apps type-check, lint and produce a production build cleanly.
 
-**Not yet built**
+**Recently completed**
 
-| Area | Note |
+| Module | What shipped |
 |---|---|
-| Role dashboards with widgets | A functional permission-filtered landing page exists in its place |
-| Reports hub | Per-module CSV/XLSX export already works for students, fees, library, hostel and transport |
-| Settings UI | Institution profile, grade scale and permission matrix are seeded; library circulation rules have a UI |
-| Audit log viewer | Audit data **is** being recorded — only the screen is missing |
+| Dashboard | Role-aware widgets for admin, teacher, student and parent, plus five charts on the administrative view |
+| Reports | A hub over nine CSV/XLSX exports with one shared filter row |
+| Settings | Institution profile and attendance rules editable; email templates and the permission matrix readable |
+| Audit logs | Filterable viewer with a field-level before/after diff |
+
+**Deliberately scoped out**
+
+| Area | Reasoning |
+|---|---|
+| Editing the permission matrix in the UI | An administrator could revoke their own `SETTINGS:EDIT` and lock every account out with no route back. Grants are changed in the seed, where the change is reviewed. |
+| Editing email template bodies in the UI | Safe editing needs variable validation and a rendered preview; without them a typo in a `{{placeholder}}` ships broken mail to every recipient. |
+| Server-side PDF generation | Report cards, receipts, invoices and ID cards are print-styled and produced through the browser, which keeps the dependency surface smaller. |
 | Global search | — |
-| User management | Students, teachers and parents are created through their own modules; other roles come from the seed |
+| User management for non-domain roles | Students, teachers and parents are created through their own modules; accountants and librarians come from the seed. |
 
 **Known limitations**
 
-- No automated test suite yet
-- Beyond authentication, most endpoints are verified by type-checking rather than by execution
+- No automated test suite yet; endpoints are verified by type-checking and by exercising them against a seeded database
 - Single-institution; multi-tenancy is out of scope
+
+---
+
+## Demo data
+
+`npm run seed` creates only the skeleton a real deployment needs — permissions, one super admin, the institution, an academic year, grade scale, timetable periods, email templates and fee categories.
+
+For a populated instance to explore or demonstrate:
+
+```bash
+cd backend
+npm run seed:demo
+```
+
+That adds 3 departments, 10 subjects, 8 teachers, 3 classes across 5 sections, 40 students with guardians and addresses, ~11 working days of attendance per section, exams with published results, invoices and payments across all four states, a library with loans and overdue fines, two hostels with allocations, and three transport routes with riders.
+
+Every name is invented. The seed refuses to run twice; to rebuild, run `npm run prisma:reset && npm run seed && npm run seed:demo`.
+
+Demo accounts sign in with `Demo@1234`.
 
 ---
 
