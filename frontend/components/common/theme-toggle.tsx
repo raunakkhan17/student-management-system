@@ -2,7 +2,7 @@
 
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,13 +17,20 @@ const OPTIONS = [
   { value: 'system', label: 'System', icon: Monitor },
 ] as const;
 
+/** Nothing to subscribe to — the value differs between server and client, and never again. */
+const neverChanges = () => () => {};
+
 export function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
 
   // The server cannot know the stored theme, so the trigger icon is only
-  // rendered after hydration to avoid a mismatch.
-  useEffect(() => setMounted(true), []);
+  // resolved after hydration to avoid a mismatch. Sourcing that as a store
+  // snapshot keeps it out of an effect, which would cost a second render.
+  const mounted = useSyncExternalStore(
+    neverChanges,
+    () => true,
+    () => false,
+  );
 
   return (
     <DropdownMenu>

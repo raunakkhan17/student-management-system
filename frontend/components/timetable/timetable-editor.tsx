@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, Save, ShieldCheck, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/common/error-state';
 import { FormDialog } from '@/components/common/form-dialog';
@@ -91,12 +91,15 @@ export function TimetableEditor({ timetableId }: { timetableId: string }) {
     enabled: Boolean(timetable?.classId),
   });
 
-  // Load the saved grid once, then let local edits own the state.
-  useEffect(() => {
-    if (!timetable) return;
+  // Load the saved grid whenever a new one arrives from the server, then let
+  // local edits own the state. Done during render rather than in an effect so
+  // the grid never paints empty for a frame first.
+  const [loadedFrom, setLoadedFrom] = useState(timetable);
+  if (timetable && timetable !== loadedFrom) {
+    setLoadedFrom(timetable);
     setSlots(slotsToPayload(timetable.slots));
     setIsDirty(false);
-  }, [timetable]);
+  }
 
   const offerings = offeringsQuery.data?.items ?? [];
   const rooms = roomsQuery.data ?? [];

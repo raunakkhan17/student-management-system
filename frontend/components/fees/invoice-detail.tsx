@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAuth } from '@/hooks/use-auth';
+import { useNow } from '@/hooks/use-now';
 import { ApiError } from '@/lib/api-client';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,7 @@ import { RecordPaymentDialog } from './record-payment-dialog';
 export function InvoiceDetailScreen({ invoiceId }: { invoiceId: string }) {
   const { can } = useAuth();
   const queryClient = useQueryClient();
+  const now = useNow();
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const refundTarget = useConfirmTarget<PaymentSummary>();
 
@@ -299,7 +301,7 @@ export function InvoiceDetailScreen({ invoiceId }: { invoiceId: string }) {
                   <dt className="text-muted-foreground">Due</dt>
                   <dd
                     className={cn(
-                      new Date(invoice.dueDate).getTime() < Date.now() &&
+                      new Date(invoice.dueDate).getTime() < now &&
                         balance > 0 &&
                         'text-destructive font-medium',
                     )}

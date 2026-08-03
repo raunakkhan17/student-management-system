@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Lock, Save, UserX } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
@@ -29,32 +29,41 @@ interface MarkState {
 
 export function MarksEntrySheet({ scheduleId }: { scheduleId: string }) {
   const queryClient = useQueryClient();
-  const [marks, setMarks] = useState<Record<string, MarkState>>({});
+  // Only what the user has typed. Anything untouched is read from the server
+  // response at render, so a refetch never has to be copied into state.
+  const [edits, setEdits] = useState<Record<string, MarkState>>({});
 
   const query = useQuery({
     queryKey: ['exams', 'marks', scheduleId],
     queryFn: () => examService.getMarksSheet(scheduleId),
   });
 
-  // Seed local state from the server whenever the sheet loads or reloads.
-  useEffect(() => {
-    if (!query.data) return;
-    setMarks(
-      Object.fromEntries(
-        query.data.students.map((student) => [
-          student.studentId,
-          {
-            value: student.marksObtained !== null ? String(Number(student.marksObtained)) : '',
-            isAbsent: student.isAbsent,
-          },
-        ]),
-      ),
-    );
-  }, [query.data]);
-
   const sheet = query.data;
+
+  // Discard edits when a different sheet arrives, so marks typed against one
+  // paper can never be saved onto another.
+  const [editedSheet, setEditedSheet] = useState(sheet);
+  if (sheet !== editedSheet) {
+    setEditedSheet(sheet);
+    setEdits({});
+  }
+
   const maxMarks = sheet ? Number(sheet.schedule.maxMarks) : 0;
   const passingMarks = sheet ? Number(sheet.schedule.passingMarks) : 0;
+
+  /** Server state with the user's unsaved edits laid over the top. */
+  const marks = useMemo<Record<string, MarkState>>(() => {
+    if (!sheet) return {};
+    return Object.fromEntries(
+      sheet.students.map((student) => [
+        student.studentId,
+        edits[student.studentId] ?? {
+          value: student.marksObtained !== null ? String(Number(student.marksObtained)) : '',
+          isAbsent: student.isAbsent,
+        },
+      ]),
+    );
+  }, [sheet, edits]);
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -106,17 +115,17 @@ export function MarksEntrySheet({ scheduleId }: { scheduleId: string }) {
   /** Rejects values above the paper maximum as the user types. */
   const setValue = (studentId: string, raw: string) => {
     if (raw !== '' && Number(raw) > maxMarks) return;
-    setMarks((current) => ({
+    setEdits((current) => ({
       ...current,
       [studentId]: { value: raw, isAbsent: false },
     }));
   };
 
   const toggleAbsent = (studentId: string, isAbsent: boolean) => {
-    setMarks((current) => ({
-      ...current,
-      [studentId]: { value: isAbsent ? '' : (current[studentId]?.value ?? ''), isAbsent },
-    }));
+    // Read through `marks`, not `edits` — the current value may still be the
+    // server's, which the user has not overridden.
+    const value = isAbsent ? '' : (marks[studentId]?.value ?? '');
+    setEdits((current) => ({ ...current, [studentId]: { value, isAbsent } }));
   };
 
   if (query.isLoading) {

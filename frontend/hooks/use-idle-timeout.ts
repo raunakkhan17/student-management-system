@@ -37,12 +37,19 @@ export function useIdleTimeout({
   const [isWarning, setIsWarning] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(Math.ceil(warningMs / 1000));
 
-  const lastActivityRef = useRef(Date.now());
+  const lastActivityRef = useRef(0);
+  // Mirrors `isWarning` so the listener/interval below need not re-subscribe
+  // every time the warning toggles.
+  const isWarningRef = useRef(false);
   const onTimeoutRef = useRef(onTimeout);
-  onTimeoutRef.current = onTimeout;
+
+  useEffect(() => {
+    onTimeoutRef.current = onTimeout;
+  }, [onTimeout]);
 
   const reset = useCallback(() => {
     lastActivityRef.current = Date.now();
+    isWarningRef.current = false;
     setIsWarning(false);
     setSecondsRemaining(Math.ceil(warningMs / 1000));
   }, [warningMs]);
@@ -50,10 +57,14 @@ export function useIdleTimeout({
   useEffect(() => {
     if (!enabled) return;
 
+    // Seeded here rather than in the ref initialiser, which would read the
+    // clock during render.
+    lastActivityRef.current = Date.now();
+
     const markActive = () => {
       // While the warning is showing, only the explicit "stay signed in"
       // action should reset the clock — otherwise a stray scroll hides it.
-      if (!isWarning) {
+      if (!isWarningRef.current) {
         lastActivityRef.current = Date.now();
       }
     };
@@ -66,15 +77,18 @@ export function useIdleTimeout({
       const idleFor = Date.now() - lastActivityRef.current;
 
       if (idleFor >= timeoutMs) {
+        isWarningRef.current = false;
         setIsWarning(false);
         onTimeoutRef.current();
         return;
       }
 
       if (idleFor >= timeoutMs - warningMs) {
+        isWarningRef.current = true;
         setIsWarning(true);
         setSecondsRemaining(Math.max(0, Math.ceil((timeoutMs - idleFor) / 1000)));
-      } else if (isWarning) {
+      } else if (isWarningRef.current) {
+        isWarningRef.current = false;
         setIsWarning(false);
       }
     }, 1000);
@@ -85,7 +99,7 @@ export function useIdleTimeout({
       }
       window.clearInterval(interval);
     };
-  }, [enabled, isWarning, timeoutMs, warningMs]);
+  }, [enabled, timeoutMs, warningMs]);
 
   return { isWarning, secondsRemaining, stayActive: reset };
 }

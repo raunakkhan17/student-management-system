@@ -34,8 +34,9 @@ export function sendCsv(res: Response, rows: ExportRow[], filename: string): voi
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(filename)}.csv"`);
-  // BOM so Excel opens UTF-8 correctly.
-  res.send(`﻿${lines.join('\r\n')}`);
+  // Leading BOM so Excel opens the file as UTF-8. Written as an escape rather
+  // than a literal character, which is invisible and easily stripped.
+  res.send(`\uFEFF${lines.join('\r\n')}`);
 }
 
 export async function sendXlsx(

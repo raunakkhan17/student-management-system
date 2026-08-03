@@ -10,7 +10,7 @@ import {
   Send,
   Users,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { EmptyState } from '@/components/common/empty-state';
@@ -79,8 +79,10 @@ export function AttendanceSheetScreen() {
   const [sectionId, setSectionId] = useState('');
   const [subjectId, setSubjectId] = useState(NONE);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [marks, setMarks] = useState<Record<string, MarkState>>({});
-  const [sessionRemarks, setSessionRemarks] = useState('');
+  // Only what the user has changed. Untouched students are read from the
+  // server response at render, so a refetch never has to be copied into state.
+  const [edits, setEdits] = useState<Record<string, MarkState>>({});
+  const [remarksEdit, setRemarksEdit] = useState<string | null>(null);
   const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false);
 
   const classOptions = useQuery({
@@ -113,26 +115,33 @@ export function AttendanceSheetScreen() {
     enabled: isReady,
   });
 
-  // Seed local state from the server whenever a different sheet loads.
-  useEffect(() => {
-    if (!sheetQuery.data) return;
-
-    setMarks(
-      Object.fromEntries(
-        sheetQuery.data.students.map((student) => [
-          student.studentId,
-          {
-            status: student.status,
-            minutesLate: student.minutesLate?.toString() ?? '',
-            remarks: student.remarks ?? '',
-          },
-        ]),
-      ),
-    );
-    setSessionRemarks(sheetQuery.data.session?.remarks ?? '');
-  }, [sheetQuery.data]);
-
   const sheet = sheetQuery.data;
+
+  // A different sheet — another class, section, subject or date — invalidates
+  // edits typed against the previous one.
+  const [editedSheet, setEditedSheet] = useState(sheet);
+  if (sheet !== editedSheet) {
+    setEditedSheet(sheet);
+    setEdits({});
+    setRemarksEdit(null);
+  }
+
+  /** Server state with the user's unsaved edits laid over the top. */
+  const marks = useMemo<Record<string, MarkState>>(() => {
+    if (!sheet) return {};
+    return Object.fromEntries(
+      sheet.students.map((student) => [
+        student.studentId,
+        edits[student.studentId] ?? {
+          status: student.status,
+          minutesLate: student.minutesLate?.toString() ?? '',
+          remarks: student.remarks ?? '',
+        },
+      ]),
+    );
+  }, [sheet, edits]);
+
+  const sessionRemarks = remarksEdit ?? sheet?.session?.remarks ?? '';
   const isLocked = sheet?.session?.status === 'LOCKED';
   const isHoliday = Boolean(sheet?.holiday);
 
@@ -167,32 +176,31 @@ export function AttendanceSheetScreen() {
   });
 
   const setStatus = (studentId: string, status: AttendanceStatus) => {
-    setMarks((current) => {
-      const existing = current[studentId] ?? { status: null, minutesLate: '', remarks: '' };
-      return {
-        ...current,
-        // Clicking the active status again clears it.
-        [studentId]: {
-          ...existing,
-          status: existing.status === status ? null : status,
-          // Minutes late only apply to PRESENT-derived states.
-          minutesLate: status === 'PRESENT' || status === 'LATE' ? existing.minutesLate : '',
-        },
-      };
-    });
+    // Read through `marks`, not `edits` — the current value may still be the
+    // server's, which the user has not overridden.
+    const existing = marks[studentId] ?? { status: null, minutesLate: '', remarks: '' };
+    setEdits((current) => ({
+      ...current,
+      // Clicking the active status again clears it.
+      [studentId]: {
+        ...existing,
+        status: existing.status === status ? null : status,
+        // Minutes late only apply to PRESENT-derived states.
+        minutesLate: status === 'PRESENT' || status === 'LATE' ? existing.minutesLate : '',
+      },
+    }));
   };
 
   const markAllPresent = () => {
     if (!sheet) return;
-    setMarks((current) =>
+    setEdits(
       Object.fromEntries(
         sheet.students.map((student) => [
           student.studentId,
           {
-            ...(current[student.studentId] ?? { minutesLate: '', remarks: '' }),
             status: 'PRESENT' as AttendanceStatus,
             minutesLate: '',
-            remarks: current[student.studentId]?.remarks ?? '',
+            remarks: marks[student.studentId]?.remarks ?? '',
           },
         ]),
       ),
@@ -441,14 +449,10 @@ export function AttendanceSheetScreen() {
                           disabled={isLocked}
                           aria-label={`Minutes late for ${student.firstName} ${student.lastName}`}
                           onChange={(event) =>
-                            setMarks((current) => ({
+                            setEdits((current) => ({
                               ...current,
                               [student.studentId]: {
-                                ...(current[student.studentId] ?? {
-                                  status: null,
-                                  minutesLate: '',
-                                  remarks: '',
-                                }),
+                                ...mark,
                                 minutesLate: event.target.value,
                               },
                             }))
@@ -499,7 +503,7 @@ export function AttendanceSheetScreen() {
                 rows={2}
                 value={sessionRemarks}
                 disabled={isLocked}
-                onChange={(event) => setSessionRemarks(event.target.value)}
+                onChange={(event) => setRemarksEdit(event.target.value)}
                 placeholder="Anything worth noting about this session"
               />
             </CardContent>

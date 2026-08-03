@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/use-auth';
+import { useNow } from '@/hooks/use-now';
 import { ApiError } from '@/lib/api-client';
 import { appConfig } from '@/lib/config';
 import { formatDateTime, formatRelative } from '@/lib/format';
@@ -31,6 +32,7 @@ import { SubmissionEvaluator } from './submission-evaluator';
 export function AssignmentDetailScreen({ assignmentId }: { assignmentId: string }) {
   const { can, hasRole } = useAuth();
   const queryClient = useQueryClient();
+  const now = useNow();
 
   const [submissionText, setSubmissionText] = useState('');
   const [submissionFiles, setSubmissionFiles] = useState<File[]>([]);
@@ -90,7 +92,7 @@ export function AssignmentDetailScreen({ assignmentId }: { assignmentId: string 
 
   const assignment = query.data;
   const mySubmission = mySubmissionQuery.data;
-  const isOverdue = new Date(assignment.dueDate).getTime() < Date.now();
+  const isOverdue = new Date(assignment.dueDate).getTime() < now;
   const canSubmit =
     isStudent &&
     assignment.status === 'PUBLISHED' &&
