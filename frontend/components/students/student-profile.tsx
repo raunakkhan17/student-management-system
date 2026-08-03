@@ -38,7 +38,10 @@ import { ApiError } from '@/lib/api-client';
 import { studentService } from '@/services/student.service';
 import { STUDENT_STATUS_LABELS, type StudentStatus } from '@/types/enums';
 import { StudentAcademicTab } from './tabs/student-academic-tab';
+import { StudentAttendanceTab } from './tabs/student-attendance-tab';
+import { StudentFeesTab } from './tabs/student-fees-tab';
 import { StudentGuardianTab } from './tabs/student-guardian-tab';
+import { StudentLibraryTab } from './tabs/student-library-tab';
 import { StudentPersonalTab } from './tabs/student-personal-tab';
 import { StudentTimelineTab } from './tabs/student-timeline-tab';
 import { TransferStudentDialog } from './transfer-student-dialog';
@@ -182,6 +185,11 @@ export function StudentProfile({ studentId }: { studentId: string }) {
             <TabsTrigger value="personal">Personal</TabsTrigger>
             <TabsTrigger value="guardian">Guardians</TabsTrigger>
             <TabsTrigger value="academic">Academic</TabsTrigger>
+            {can('ATTENDANCE', 'VIEW') && (
+              <TabsTrigger value="attendance">Attendance</TabsTrigger>
+            )}
+            {can('FEES', 'VIEW') && <TabsTrigger value="fees">Fees</TabsTrigger>}
+            {can('LIBRARY', 'VIEW') && <TabsTrigger value="library">Library</TabsTrigger>}
             <TabsTrigger value="documents">Documents</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
@@ -197,6 +205,21 @@ export function StudentProfile({ studentId }: { studentId: string }) {
         <TabsContent value="academic" className="mt-0">
           <StudentAcademicTab student={student} />
         </TabsContent>
+        {can('ATTENDANCE', 'VIEW') && (
+          <TabsContent value="attendance" className="mt-0">
+            <StudentAttendanceTab studentId={studentId} />
+          </TabsContent>
+        )}
+        {can('FEES', 'VIEW') && (
+          <TabsContent value="fees" className="mt-0">
+            <StudentFeesTab studentId={studentId} />
+          </TabsContent>
+        )}
+        {can('LIBRARY', 'VIEW') && (
+          <TabsContent value="library" className="mt-0">
+            <StudentLibraryTab userId={student.user.id} />
+          </TabsContent>
+        )}
         <TabsContent value="documents" className="mt-0">
           <PersonDocumentsPanel studentId={studentId} />
         </TabsContent>
