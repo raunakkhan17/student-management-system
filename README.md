@@ -93,7 +93,7 @@ The design goal throughout was correctness over cleverness: money is `Decimal` e
 | Auth | JSON Web Tokens · bcrypt |
 | Security | Helmet · CORS · express-rate-limit · Zod validation |
 | Files | Multer (local storage) |
-| Export | ExcelJS · PDFKit · QRCode |
+| Export | ExcelJS · QRCode (PDF via browser print) |
 | Email | Nodemailer |
 
 No Docker, Redis, S3 or third-party auth — the application runs against a local Postgres instance and the local filesystem.
