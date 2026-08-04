@@ -1113,8 +1113,31 @@ async function main(): Promise<void> {
 
   console.log(`  • ${STAFF.length} staff logins, ${parentGuardians.length} parent logins`);
 
+  // Bring the super admin onto the same password as the demo accounts, so a
+  // walkthrough can move between all seven roles without a credential change
+  // partway through.
+  //
+  // This deliberately clears `mustChangePassword`, which the base seed sets so
+  // a real deployment cannot keep its provisioning password. That protection
+  // matters in production and is exactly why it lives in `seed.ts` and is
+  // undone only here, in a file that must never touch a live instance.
+  await prisma.user.updateMany({
+    where: { role: 'SUPER_ADMIN' },
+    data: {
+      passwordHash,
+      mustChangePassword: false,
+      // A locked-out admin part-way through a demo is unrecoverable without
+      // database access, so clear any counter the account arrived with.
+      failedLoginCount: 0,
+      lockedUntil: null,
+    },
+  });
+
+  console.log('  • super admin password aligned with the demo accounts');
+
   console.log('\nDemo data ready.');
-  console.log(`  Every demo account signs in with: ${DEMO_PASSWORD}`);
+  console.log(`  Every account — all seven roles — signs in with: ${DEMO_PASSWORD}`);
+  console.log('  Super admin: admin@educore.local');
 }
 
 main()

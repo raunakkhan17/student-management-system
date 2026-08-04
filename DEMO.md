@@ -16,7 +16,7 @@ A role-by-role walkthrough built around one real scenario, using the data `npm r
 >
 > Seven people. One system. Each sees only what their role permits.
 
-Everyone below signs in with **`Demo@1234`** except the super admin.
+Every account below — all seven roles — signs in with **`Demo@1234`**.
 
 ---
 
@@ -163,7 +163,7 @@ Then say the part that matters:
 
 ## 7 · Super Admin — 3 min
 
-**Sign in:** `admin@educore.local` *(your own password)*
+**Sign in:** `admin@educore.local`
 
 **Show:**
 
@@ -223,4 +223,4 @@ Answer honestly.
 | 6 | Admin | `admin@demo.educore.local` | 8 tiles, 5 charts, 9 reports |
 | 7 | Super Admin | `admin@educore.local` | Permission matrix; audit diff |
 
-Password for 1–6: **`Demo@1234`**
+**Every one of the seven: `Demo@1234`**

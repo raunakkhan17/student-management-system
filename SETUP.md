@@ -247,22 +247,31 @@ A healthy response reports `"status":"ok"` and `"database":{"reachable":true}`.
 
 Open **http://localhost:3000**.
 
+**If you ran the demo seed** (step 6b), every account including the super admin uses `Demo@1234`:
+
+```
+admin@educore.local
+Demo@1234
+```
+
+**If you ran only the base seed**, the super admin is provisioned with a password it will force you to replace on first sign-in:
+
 ```
 admin@educore.local
 ChangeMe@123
 ```
 
-You will be asked to set a new password immediately — that is `mustChangePassword` doing its job, not an error. Choose something you'll remember; there is no email server configured to recover it.
+That prompt is `mustChangePassword` doing its job, not an error. Choose something you'll remember; there is no email server configured to recover it.
 
 ---
 
 ## Demo accounts
 
-Available only if you ran `npm run seed:demo`. **All of them use `Demo@1234`.**
+Available only if you ran `npm run seed:demo`. **All seven roles use `Demo@1234`.**
 
 | Role | Email |
 |---|---|
-| Super Admin | `admin@educore.local` *(your own password from step 8)* |
+| Super Admin | `admin@educore.local` |
 | Admin | `admin@demo.educore.local` |
 | Teacher | `sunita.deshpande@educore.local` |
 | Student | `reyansh.verma.1@student.educore.local` |
@@ -273,6 +282,8 @@ Available only if you ran `npm run seed:demo`. **All of them use `Demo@1234`.**
 Any of the 8 teachers and 40 students can sign in with `Demo@1234`. Their addresses follow a pattern — teachers `firstname.lastname@educore.local`, students `firstname.lastname.N@student.educore.local`. The students list shows every address.
 
 `parent2@` and `parent3@` also exist, linked to different children.
+
+> The demo seed resets the super admin onto that shared password and clears the forced-password-change flag, so a walkthrough can move between all seven roles without stopping to change credentials. That flag is a real protection — it stops a deployment keeping its provisioning password — which is why the base seed sets it and only `seed-demo.ts` undoes it. Never run the demo seed against an instance holding real data.
 
 ---
 
@@ -288,7 +299,7 @@ npm run seed:demo        # repopulate the demo data
 
 `prisma:reset` **destroys all data in the `educore` database**. It is meant for development only and will refuse to run non-interactively in some tools. Never point it at anything you care about.
 
-Your super admin password reverts to `ChangeMe@123` after a reset.
+After a reset the super admin password is `ChangeMe@123` again — unless you re-run `seed:demo`, which puts it back to `Demo@1234` along with every other role.
 
 ---
 
