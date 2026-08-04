@@ -3,7 +3,7 @@ import { prisma } from '@/config/prisma';
 import type { AuthenticatedUser } from '@/types/auth';
 import type { ListQueryOptions, PaginatedData } from '@/types/api';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '@/utils/api-error';
-import { ownSectionIds } from '@/utils/enrolment-scope';
+import { ownSectionIds, ownStudentIds } from '@/utils/enrolment-scope';
 import { buildPaginationMeta } from '@/utils/pagination';
 import type {
   AttendanceRecordInput,
@@ -36,6 +36,20 @@ export type SessionWithRecords = Prisma.AttendanceSessionGetPayload<{
 
 /** Statuses that count towards "present" when computing percentages. */
 const PRESENT_STATUSES: AttendanceStatus[] = ['PRESENT', 'LATE'];
+
+/**
+ * Refuses the two self-service roles.
+ *
+ * Registers, pending-marking queues and institution-wide aggregates are staff
+ * views: they describe cohorts, so there is no version of them a student or
+ * parent could be shown safely. Both roles read their own attendance through
+ * `getStudentAttendance`, which scopes to the records they own.
+ */
+export function assertStaffOnly(user: AuthenticatedUser, subject: string): void {
+  if (user.role === 'STUDENT' || user.role === 'PARENT') {
+    throw new ForbiddenError(`${subject} is not available on a self-service account`);
+  }
+}
 
 /**
  * Verifies the caller may mark or edit attendance for this section.
@@ -509,23 +523,43 @@ export async function getSession(sessionId: string): Promise<SessionWithRecords>
  * Aggregated with groupBy rather than loading every record, so a 5,000-student
  * institution stays within the PRD's response-time budget.
  */
-export async function getMonthlyAttendance(filters: {
-  classId?: string;
-  sectionId?: string;
-  studentId?: string;
-  year: number;
-  month: number;
-}) {
+export async function getMonthlyAttendance(
+  user: AuthenticatedUser,
+  filters: {
+    classId?: string;
+    sectionId?: string;
+    studentId?: string;
+    year: number;
+    month: number;
+  },
+) {
   const start = new Date(Date.UTC(filters.year, filters.month - 1, 1));
   const end = new Date(Date.UTC(filters.year, filters.month, 0, 23, 59, 59));
 
+  // Self-service accounts are pinned to their own records whatever class,
+  // section or student they ask for. Both queries below derive their filter
+  // from this one value: scoping only the tally would still list every
+  // student in the institution, with empty rows.
+  const isSelfService = user.role === 'STUDENT' || user.role === 'PARENT';
+  const ownIds = isSelfService ? await ownStudentIds(user) : [];
+
+  const studentIdFilter: Prisma.StringFilter | string | undefined = isSelfService
+    ? filters.studentId && ownIds.includes(filters.studentId)
+      ? filters.studentId
+      : { in: ownIds }
+    : filters.studentId;
+
+  // A cohort filter is meaningless once the caller is pinned to their own rows.
+  const cohort = isSelfService
+    ? {}
+    : {
+        ...(filters.classId ? { classId: filters.classId } : {}),
+        ...(filters.sectionId ? { sectionId: filters.sectionId } : {}),
+      };
+
   const recordWhere: Prisma.AttendanceRecordWhereInput = {
-    session: {
-      date: { gte: start, lte: end },
-      ...(filters.classId ? { classId: filters.classId } : {}),
-      ...(filters.sectionId ? { sectionId: filters.sectionId } : {}),
-    },
-    ...(filters.studentId ? { studentId: filters.studentId } : {}),
+    session: { date: { gte: start, lte: end }, ...cohort },
+    ...(studentIdFilter ? { studentId: studentIdFilter } : {}),
   };
 
   const [grouped, students, holidays] = await Promise.all([
@@ -537,9 +571,8 @@ export async function getMonthlyAttendance(filters: {
     prisma.student.findMany({
       where: {
         deletedAt: null,
-        ...(filters.studentId ? { id: filters.studentId } : {}),
-        ...(filters.classId ? { classId: filters.classId } : {}),
-        ...(filters.sectionId ? { sectionId: filters.sectionId } : {}),
+        ...(studentIdFilter ? { id: studentIdFilter } : {}),
+        ...cohort,
       },
       select: {
         id: true,
@@ -740,6 +773,8 @@ export async function getAttendanceReportRows(filters: {
 
 /** Sessions still in DRAFT for the caller — drives the "pending attendance" widget. */
 export async function getPendingSessions(user: AuthenticatedUser) {
+  assertStaffOnly(user, 'The pending-attendance queue');
+
   return prisma.attendanceSession.findMany({
     where: {
       status: 'DRAFT',

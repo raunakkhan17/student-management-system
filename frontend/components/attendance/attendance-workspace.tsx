@@ -7,12 +7,19 @@ import { AttendanceSheetScreen } from './attendance-sheet';
 import { AttendanceRegisterTab } from './attendance-register-tab';
 import { AttendanceSessionsTab } from './attendance-sessions-tab';
 import { HolidaysTab } from './holidays-tab';
+import { MyAttendancePanel } from './my-attendance-panel';
 
 export function AttendanceWorkspace() {
-  const { can } = useAuth();
+  const { can, hasRole } = useAuth();
 
   const canMark = can('ATTENDANCE', 'CREATE');
   const canManageHolidays = can('ATTENDANCE', 'CREATE');
+
+  // Students and parents are entitled to one record, not a cohort. The tabbed
+  // register below is a staff tool and its endpoints refuse these roles.
+  if (hasRole('STUDENT', 'PARENT')) {
+    return <MyAttendancePanel />;
+  }
 
   return (
     <Tabs defaultValue={canMark ? 'mark' : 'register'} className="space-y-4">

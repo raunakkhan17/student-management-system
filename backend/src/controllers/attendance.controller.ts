@@ -132,7 +132,8 @@ export const unlockSession = asyncHandler(async (req: Request, res: Response) =>
 });
 
 export const getMonthly = asyncHandler(async (req: Request, res: Response) => {
-  const summary = await attendanceService.getMonthlyAttendance({
+  const user = requireUser(req);
+  const summary = await attendanceService.getMonthlyAttendance(user, {
     classId: req.query['classId'] as string | undefined,
     sectionId: req.query['sectionId'] as string | undefined,
     studentId: req.query['studentId'] as string | undefined,
@@ -176,6 +177,10 @@ export const getPending = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const getDailySummary = asyncHandler(async (req: Request, res: Response) => {
+  // Institution-wide figures. Guarded here rather than in the service, which
+  // the dashboard also calls for administrative roles.
+  attendanceService.assertStaffOnly(requireUser(req), 'Institution-wide attendance');
+
   const raw = req.query['date'];
   const date = raw ? new Date(`${String(raw)}T00:00:00.000Z`) : new Date();
   const summary = await attendanceService.getDailySummary(date);
@@ -183,6 +188,8 @@ export const getDailySummary = asyncHandler(async (req: Request, res: Response) 
 });
 
 export const getTrend = asyncHandler(async (req: Request, res: Response) => {
+  attendanceService.assertStaffOnly(requireUser(req), 'The attendance trend');
+
   const to = req.query['to'] ? new Date(`${String(req.query['to'])}T00:00:00.000Z`) : new Date();
   const from = req.query['from']
     ? new Date(`${String(req.query['from'])}T00:00:00.000Z`)
